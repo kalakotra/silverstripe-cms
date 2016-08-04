@@ -9,10 +9,10 @@ use SilverStripe\ORM\DataObject;
  * @subpackage content
  */
 class RedirectorPage extends Page {
-	private static $description = 'Redirects to an internal page or an external URL';
+	private static $description = 'Redirects to an internal page, document or an external URL';
 
 	private static $db = array(
-		"RedirectionType" => "Enum('Internal,External','Internal')",
+		"RedirectionType" => "Enum('Internal,External,File','Internal')",
 		"ExternalURL" => "Varchar(2083)" // 2083 is the maximum length of a URL in Internet Explorer.
 	);
 
@@ -22,6 +22,7 @@ class RedirectorPage extends Page {
 
 	private static $has_one = array(
 		"LinkTo" => "SiteTree",
+		'FileDownload' => 'File'
 	);
 
 	private static $many_many = array(
@@ -79,6 +80,13 @@ class RedirectorPage extends Page {
 				return $this->ExternalURL;
 			}
 
+		} else if ($this->RedirectionType == 'File') {
+			$FileDownloadLink = $this->FileDownloadID ? File::get()->byId($this->FileDownloadID) : null;
+			if ($FileDownloadLink) {
+				return $FileDownloadLink->URL;
+			} else {
+				return null;
+			}
 		} else {
 			$linkTo = $this->LinkToID ? DataObject::get_by_id("SiteTree", $this->LinkToID) : null;
 
@@ -106,6 +114,13 @@ class RedirectorPage extends Page {
 		if ($this->RedirectionType == 'Internal') {
 			if($this->LinkToID) {
 				$this->HasBrokenLink = DataObject::get_by_id('SiteTree', $this->LinkToID) ? false : true;
+			} else {
+				// An incomplete redirector page definitely has a broken link
+				$this->HasBrokenLink = true;
+			}
+		} else if ($this->RedirectionType == 'File') {
+			if($this->FileDownloadID) {
+				$this->HasBrokenLink = File::get()->byId($this->FileDownloadID) ? false : true;
 			} else {
 				// An incomplete redirector page definitely has a broken link
 				$this->HasBrokenLink = true;
@@ -154,6 +169,11 @@ class RedirectorPage extends Page {
 					"LinkToID",
 					_t('RedirectorPage.YOURPAGE', "Page on your website"),
 					"SiteTree"
+				),
+				new TreeDropdownField(	
+					"FileDownloadID", 
+					_t('RedirectorPage.YOURFILE', "Document"), 
+					"File"
 				),
 				new TextField("ExternalURL", _t('RedirectorPage.OTHERURL', "Other website URL"))
 			)
